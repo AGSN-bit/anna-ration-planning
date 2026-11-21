@@ -23,16 +23,26 @@ ANNA is a local demonstration of how a future ration logistics platform might co
 
 The dependencies are listed in [`requirements.txt`](requirements.txt). A virtual environment is recommended so the app's packages stay separate from system Python.
 
+### Get the project
+
+Install Git if needed, then clone the repository and enter its folder. If the repository is private, sign in to GitHub and make sure your account has access before cloning.
+
+```bash
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
+```
+
 ## Run locally
 
 The app listens on your own computer at `http://localhost:8501` by default. Run these commands from the repository folder. Keep the terminal open while you use the app; stop it with **Ctrl+C**.
 
 ### CachyOS and other Linux distributions
 
-Open a terminal, change to the project directory, then create and install into a virtual environment. These commands work in Bash and Zsh:
+Open a terminal and clone the project. Then create and install into a virtual environment. These commands work in Bash and Zsh:
 
 ```bash
-cd /home/ag/Documents/ChatGPT/ANNA
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -43,7 +53,8 @@ streamlit run app.py
 If your terminal uses **fish** (as on the CachyOS setup shown during development), activate it with the fish-specific script:
 
 ```fish
-cd /home/ag/Documents/ChatGPT/ANNA
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
 python -m venv .venv
 source .venv/bin/activate.fish
 python -m pip install --upgrade pip
@@ -60,10 +71,11 @@ To skip activation in fish or another shell, invoke the virtual environment's pr
 
 ### macOS
 
-Open Terminal, change to the folder where you saved or cloned the repository, then run:
+Open Terminal, clone the repository, enter its folder, then run:
 
 ```bash
-cd /path/to/ANNA
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -71,14 +83,13 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Replace `/path/to/ANNA` with the actual project path on your Mac. For example, if it is in Downloads, use `cd ~/Downloads/ANNA`.
-
 ### Windows PowerShell
 
-Open PowerShell in the project folder. Create the environment, activate it, install dependencies, and start Streamlit:
+Open PowerShell and clone the repository. Create the environment, activate it, install dependencies, and start Streamlit:
 
 ```powershell
-cd C:\path\to\ANNA
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -93,12 +104,13 @@ If PowerShell blocks activation because of its execution policy, you can avoid a
 \.venv\Scripts\streamlit.exe run app.py
 ```
 
-Replace `C:\path\to\ANNA` with the actual project folder. You can also open the folder in File Explorer, right-click inside it, and choose **Open in Terminal**.
+You can also open the cloned folder in File Explorer, right-click inside it, and choose **Open in Terminal**.
 
 ### Windows Command Prompt
 
 ```bat
-cd C:\path\to\ANNA
+git clone https://github.com/AGSN-bit/anna-ration-planning.git
+cd anna-ration-planning
 py -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
