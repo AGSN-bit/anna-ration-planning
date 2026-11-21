@@ -1,0 +1,6 @@
+.venv/
+.agents/
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+data/generated/
