@@ -15,12 +15,22 @@ from anna.inventory import allocate_fefo, inventory_summary, recommend_order, si
 st.set_page_config(page_title="ANNA | Ration Planning Demo", page_icon="📦", layout="wide")
 st.markdown("""
 <style>
-html, body, [class*="css"] { font-family: Inter, "Segoe UI", sans-serif; color:#172b3a; }
+html, body, [class*="css"] { font-family: Inter, "Segoe UI", sans-serif; color:#172b3a; color-scheme:light; }
+:root, [data-theme="light"], [data-theme="dark"] {
+  color-scheme:light;
+  --text-color:#172b3a;
+  --background-color:#f7f9fc;
+  --secondary-background-color:#edf2f6;
+  --primary-color:#145a53;
+}
 .stApp { background:#f7f9fc; }
 .block-container { padding-top:1.6rem; padding-bottom:2.5rem; max-width:1440px; }
-h1, h2, h3, h4 { color:#142b3d; letter-spacing:-.025em; }
+h1, h2, h3, h4 { color:#142b3d !important; letter-spacing:-.025em; opacity:1 !important; }
 h2 { font-size:1.45rem; }
 h3 { font-size:1.18rem; }
+.stApp p, .stApp li, .stApp label, .stApp [data-testid="stMarkdownContainer"] { color:#263d4d !important; opacity:1 !important; }
+.stApp [data-testid="stCaptionContainer"] p { color:#4a6071 !important; opacity:1 !important; }
+.stApp [data-testid="stMarkdownContainer"] strong { color:#17364b !important; }
 .hero { background:linear-gradient(112deg,#102b46 0%,#164c66 57%,#166b66 100%); color:#fff; padding:1.8rem 2rem; border-radius:18px; margin-bottom:1rem; box-shadow:0 10px 28px rgba(16,43,70,.14); }
 .hero h1 { font-size:2.1rem; line-height:1.15; margin:.32rem 0 .45rem; color:#fff; }
 .hero p { max-width:850px; margin:0; color:#e7f1f5; font-size:1.02rem; line-height:1.55; }
@@ -35,7 +45,8 @@ div[data-testid="stMetricLabel"] p { color:#4a6071 !important; font-size:.82rem;
 div[data-testid="stMetricValue"] { color:#102b46 !important; font-weight:750; }
 [data-testid="stSidebar"] { background:#edf2f6; border-right:1px solid #d6e0e8; }
 [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color:#102b46; }
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:#344b5d; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color:#344b5d !important; opacity:1 !important; }
 [data-testid="stTabs"] [role="tablist"] { gap:.35rem; border-bottom:1px solid #d2dde6; }
 [data-testid="stTabs"] button[role="tab"] { color:#40586a; font-weight:650; padding:.65rem .9rem; border-radius:9px 9px 0 0; }
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color:#075e59; background:#e5f1ef; }
