@@ -1,4 +1,4 @@
-"""ANNA: a local, synthetic-data decision-support demonstration."""
+"""ANNA logistics decision-support prototype using synthetic data only."""
 
 from __future__ import annotations
 
@@ -9,218 +9,443 @@ import streamlit as st
 
 from anna.data import ITEMS, generate_batches, generate_history, get_item
 from anna.forecasting import evaluate_holdout, forecast
-from anna.inventory import allocate_fefo, inventory_summary, recommend_order, simulate
+from anna.inventory import (
+    allocate_fefo,
+    apply_demand_scenario,
+    inventory_summary,
+    recommend_order,
+    simulate_policy,
+    summarize_simulation,
+)
 
 
-st.set_page_config(page_title="ANNA | Ration Planning Demo", page_icon="📦", layout="wide")
-st.markdown("""
+st.set_page_config(page_title="ANNA | Logistics Control Tower", page_icon="📦", layout="wide")
+st.markdown(
+    """
 <style>
-html, body, [class*="css"] { font-family: Inter, "Segoe UI", sans-serif; color:#172b3a; color-scheme:light; }
 :root, [data-theme="light"], [data-theme="dark"] {
-  color-scheme:light;
-  --text-color:#172b3a;
-  --background-color:#f7f9fc;
-  --secondary-background-color:#edf2f6;
-  --primary-color:#145a53;
+  color-scheme: light;
+  --text-color: #183047;
+  --background-color: #f5f8fb;
+  --secondary-background-color: #eaf0f5;
+  --primary-color: #0a8178;
 }
-.stApp { background:#f7f9fc; }
-.block-container { padding-top:1.6rem; padding-bottom:2.5rem; max-width:1440px; }
-h1, h2, h3, h4 { color:#142b3d !important; letter-spacing:-.025em; opacity:1 !important; }
-h2 { font-size:1.45rem; }
-h3 { font-size:1.18rem; }
-.stApp p, .stApp li, .stApp label, .stApp [data-testid="stMarkdownContainer"] { color:#263d4d !important; opacity:1 !important; }
-.stApp [data-testid="stCaptionContainer"] p { color:#4a6071 !important; opacity:1 !important; }
-.stApp [data-testid="stMarkdownContainer"] strong { color:#17364b !important; }
-.hero { background:linear-gradient(112deg,#102b46 0%,#164c66 57%,#166b66 100%); color:#fff; padding:1.8rem 2rem; border-radius:18px; margin-bottom:1rem; box-shadow:0 10px 28px rgba(16,43,70,.14); }
-.hero h1 { font-size:2.1rem; line-height:1.15; margin:.32rem 0 .45rem; color:#fff; }
-.hero p { max-width:850px; margin:0; color:#e7f1f5; font-size:1.02rem; line-height:1.55; }
-.eyebrow { text-transform:uppercase; letter-spacing:.13em; font-size:.72rem; font-weight:750; color:#a9eadb; }
-.note { background:#eaf3f7; border:1px solid #bdd3df; border-left:5px solid #146b70; padding:.9rem 1.1rem; border-radius:10px; color:#193648; margin:.75rem 0 1.4rem; line-height:1.5; }
-.vision-card { border:1px solid #cbd8e2; border-radius:14px; padding:1.1rem; background:#fff; min-height:155px; box-shadow:0 3px 12px rgba(18,43,61,.045); }
-.vision-card h4 { margin:.6rem 0 .35rem; color:#18374b; }
-.vision-card p { color:#40576a; line-height:1.5; margin:0; }
-.vision-step { color:#075e59; font-weight:750; font-size:.72rem; letter-spacing:.09em; text-transform:uppercase; }
-div[data-testid="stMetric"] { background:#fff; border:1px solid #d3dee7; padding:14px 16px; border-radius:13px; box-shadow:0 2px 8px rgba(18,43,61,.035); }
-div[data-testid="stMetricLabel"] p { color:#4a6071 !important; font-size:.82rem; font-weight:650; }
-div[data-testid="stMetricValue"] { color:#102b46 !important; font-weight:750; }
-[data-testid="stSidebar"] { background:#edf2f6; border-right:1px solid #d6e0e8; }
-[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color:#102b46; }
+html, body, .stApp { background:#f5f8fb; color:#183047; color-scheme:light; }
+.block-container { max-width:1480px; padding:1.6rem 2rem 3rem; }
+[data-testid="stSidebar"] { background:#eaf0f5; border-right:1px solid #d3dee7; }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color:#344b5d !important; opacity:1 !important; }
-[data-testid="stTabs"] [role="tablist"] { gap:.35rem; border-bottom:1px solid #d2dde6; }
-[data-testid="stTabs"] button[role="tab"] { color:#40586a; font-weight:650; padding:.65rem .9rem; border-radius:9px 9px 0 0; }
-[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color:#075e59; background:#e5f1ef; }
-[data-testid="stAlert"] { border-radius:11px; }
-div[data-testid="stDataFrame"] { border:1px solid #d4dee7; border-radius:11px; overflow:hidden; }
-button[kind="secondary"], .stDownloadButton button { border:1px solid #9aafbf; color:#173b51; font-weight:650; border-radius:9px; }
-button[kind="secondary"]:hover, .stDownloadButton button:hover { border-color:#075e59; color:#075e59; }
-hr { border-color:#d9e2e9; }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] label { color:#30495c !important; opacity:1 !important; }
+h1,h2,h3,h4,[data-testid="stHeading"] { color:#122d46 !important; opacity:1 !important; letter-spacing:-.025em; }
+.stApp [data-testid="stMarkdownContainer"] p,
+.stApp [data-testid="stMarkdownContainer"] li,
+.stApp [data-testid="stCaptionContainer"] p { color:#30495c !important; opacity:1 !important; }
+.stApp [data-testid="stMarkdownContainer"] strong { color:#17364b !important; }
+.brand { background:linear-gradient(120deg,#102d48,#15506a 62%,#0b766f); color:#fff; padding:1.35rem 1.6rem; border-radius:17px; margin:0 0 1rem; box-shadow:0 9px 25px rgba(16,45,72,.12); }
+.brand .eyebrow { color:#9ce5d7; font-weight:750; letter-spacing:.13em; text-transform:uppercase; font-size:.7rem; }
+.brand h1 { color:#fff !important; font-size:1.9rem; margin:.35rem 0 .35rem; }
+.brand p { color:#e3eef3 !important; margin:0; max-width:900px; line-height:1.5; }
+.pill { display:inline-block; border-radius:999px; padding:.22rem .62rem; background:#d9f1ec; color:#075f58; font-size:.72rem; font-weight:750; letter-spacing:.04em; }
+.section-kicker { color:#08766d; font-size:.72rem; font-weight:750; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.2rem; }
+div[data-testid="stMetric"] { background:#fff; border:1px solid #d5e0e8; padding:13px 15px; border-radius:13px; box-shadow:0 2px 8px rgba(18,43,61,.035); }
+div[data-testid="stMetricLabel"] p { color:#496174 !important; font-size:.8rem; font-weight:650; }
+div[data-testid="stMetricValue"] { color:#122d46 !important; font-weight:760; }
+div[data-testid="stMetricDelta"] { font-size:.78rem; }
+[data-testid="stTabs"] button[role="tab"] { color:#40596b; font-weight:650; }
+[data-testid="stAlert"] { border-radius:12px; }
+div[data-testid="stDataFrame"] { border:1px solid #d5e0e8; border-radius:11px; overflow:hidden; }
+.stButton button, .stFormSubmitButton button, .stDownloadButton button { border-radius:9px; font-weight:700; }
+hr { border-color:#d7e1e8; }
+@media (max-width: 800px) { .block-container { padding:.9rem 1rem 2rem; } .brand { padding:1rem 1.1rem; } .brand h1 { font-size:1.55rem; } }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
+
+PAGE_NAMES = [
+    "Overview",
+    "Demand Forecast",
+    "Inventory & FEFO",
+    "Scenario Simulator",
+    "Recommendations",
+]
+DEFAULT_SCENARIO = {
+    "lead_time_days": 7,
+    "additional_delay_days": 7,
+    "demand_multiplier": 1.15,
+    "interruption_days": 0,
+    "horizon_days": 14,
+}
+SERVICE_FACTOR = 1.28  # Illustrative z-value, approximately 90% under normal assumptions.
+
+
+def quantity(value: float, unit: str, digits: int = 0) -> str:
+    return f"{value:,.{digits}f} {unit}"
+
+
+def stock_chart(
+    baseline: pd.DataFrame,
+    no_order: pd.DataFrame,
+    proposed: pd.DataFrame,
+    unit: str,
+    arrival_date: pd.Timestamp | pd.NaT,
+) -> go.Figure:
+    figure = go.Figure()
+    figure.add_trace(go.Scatter(x=baseline.date, y=baseline.closing_stock, name="Baseline · no scenario", line={"color": "#64788a", "width": 2.2}))
+    figure.add_trace(go.Scatter(x=no_order.date, y=no_order.closing_stock, name="Selected scenario · no order", line={"color": "#d27a35", "width": 2.8}))
+    figure.add_trace(go.Scatter(x=proposed.date, y=proposed.closing_stock, name="Selected scenario · proposed order", line={"color": "#087d73", "width": 3.2}))
+    if not pd.isna(arrival_date) and arrival_date <= proposed.date.max():
+        figure.add_vline(x=arrival_date, line_width=1.5, line_dash="dot", line_color="#315ca8", annotation_text="Order arrival", annotation_position="top")
+    figure.update_layout(
+        template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#fff",
+        font={"color": "#2e4659", "family": "Inter, Segoe UI, sans-serif"},
+        height=360, margin={"l": 8, "r": 12, "t": 24, "b": 8},
+        yaxis_title=f"Usable closing stock ({unit})", xaxis_title="Date",
+        legend={"orientation": "h", "y": -0.24}, hovermode="x unified",
+    )
+    figure.update_yaxes(rangemode="tozero", gridcolor="#e8eef2")
+    figure.update_xaxes(gridcolor="#f0f3f6")
+    return figure
+
+
+def demand_chart(
+    dates: pd.DatetimeIndex,
+    baseline: np.ndarray,
+    adjusted: np.ndarray,
+    unit: str,
+) -> go.Figure:
+    figure = go.Figure()
+    figure.add_trace(go.Scatter(x=dates, y=baseline, name="Baseline forecast", line={"color": "#17618a", "width": 2.8}))
+    figure.add_trace(go.Scatter(x=dates, y=adjusted, name="Scenario-adjusted demand", line={"color": "#d27a35", "width": 2.8, "dash": "dash"}))
+    figure.update_layout(
+        template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#fff",
+        font={"color": "#2e4659", "family": "Inter, Segoe UI, sans-serif"},
+        height=360, margin={"l": 8, "r": 12, "t": 20, "b": 8},
+        yaxis_title=f"Daily demand ({unit})", xaxis_title="Date",
+        legend={"orientation": "h", "y": -0.24}, hovermode="x unified",
+    )
+    figure.update_yaxes(rangemode="tozero", gridcolor="#e8eef2")
+    figure.update_xaxes(gridcolor="#f0f3f6")
+    return figure
+
+
+st.session_state.setdefault("active_scenario", DEFAULT_SCENARIO.copy())
+active_scenario = dict(st.session_state.active_scenario)
 
 with st.sidebar:
     st.markdown("## ANNA")
-    st.caption("Predict ahead. Supply with precision.")
-    st.divider()
-    st.markdown("### Demo controls")
-    seed = st.number_input("Synthetic data seed", min_value=1, max_value=99999, value=42, step=1)
+    st.caption("LOGISTICS DECISION SUPPORT")
+    st.markdown("---")
+    page = st.radio("Workspace", PAGE_NAMES, label_visibility="collapsed")
+    st.markdown("---")
+    st.markdown("#### Select a supply item")
+    seed = st.number_input("Synthetic data seed", min_value=1, max_value=99_999, value=42, step=1)
     selected_item = st.selectbox("Ration category", [item.name for item in ITEMS])
     model = st.selectbox("Forecast method", ["Moving average", "Random Forest"])
-    horizon = st.select_slider("Planning horizon", options=[7, 14, 30], value=14, format_func=lambda x: f"{x} days")
-    st.markdown("### What-if scenario")
-    delay = st.slider("Additional delivery delay", 0, 30, 7, 1, format="%d days")
-    demand_multiplier = st.slider("Demand change", 0.8, 1.5, 1.15, 0.05, format="%.2f×")
-    interruption = st.slider("Supply interruption", 0, 30, 0, 1, format="%d days")
-    st.caption("Scenario ranges are demonstration controls, not real operating parameters.")
+    st.markdown("---")
+    st.caption("Synthetic demonstration · no operational data or order transmission")
+
 
 history = generate_history(int(seed))
 batches_all = generate_batches(int(seed), history)
 item = get_item(selected_item)
-series_df = history[history.item == selected_item].sort_values("date").reset_index(drop=True)
-batches = batches_all[batches_all.item == selected_item].copy().reset_index(drop=True)
-dates = series_df.date
-values = series_df.daily_consumption
-as_of = pd.Timestamp(dates.iloc[-1]).normalize()
-future = forecast(values, dates, 30, model, int(seed))
-selected_forecast = future[:horizon]
-lead_time = 7
-# Size the illustrative order against the selected scenario's demand and effective lead time.
-scenario_demand = selected_forecast * float(demand_multiplier)
-scenario_demand[:min(int(interruption), len(scenario_demand))] *= 1.15
-order = recommend_order(scenario_demand, batches, as_of,
-                        lead_time=lead_time + int(delay), horizon=horizon)
-summary = inventory_summary(batches, as_of)
-scenario_no_order = simulate(batches, selected_forecast, as_of, lead_time, int(delay), float(demand_multiplier), int(interruption))
-scenario_with_order = simulate(batches, selected_forecast, as_of, lead_time, int(delay), float(demand_multiplier), int(interruption), order["order_qty"])
-baseline = simulate(batches, selected_forecast, as_of, lead_time, 0, 1.0, 0)
-metrics = evaluate_holdout(values, dates, model, int(seed))
+item_history = history.loc[history.item == selected_item].sort_values("date").reset_index(drop=True)
+batches = batches_all.loc[batches_all.item == selected_item].copy().reset_index(drop=True)
+dates = pd.DatetimeIndex(item_history.date)
+values = item_history.daily_consumption.astype(float)
+as_of = dates[-1].normalize()
+baseline_90 = forecast(values, pd.Series(dates), 90, model, int(seed))
+history_std = float(values.tail(90).std(ddof=1))
+if not np.isfinite(history_std):
+    history_std = 0.0
 
-st.markdown(f"""
-<div class="hero"><div class="eyebrow">Academic simulation · Synthetic data only</div>
-<h1>ANNA ration planning demo</h1>
-<p>A small prototype showing how forecasts, batch expiry and delivery disruption can shape a human-reviewed replenishment decision.</p></div>
-""", unsafe_allow_html=True)
-st.markdown("<div class='note'><b>Simulation boundary:</b> This demo uses generated data and illustrative assumptions. It is not an Army system, does not use operational data, and cannot place orders. Review every recommendation.</div>", unsafe_allow_html=True)
-
-summary_col, reason_col = st.columns([1.65, 1])
-with summary_col:
-    st.subheader(f"{selected_item} outlook")
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Usable stock", f"{summary['usable']:,.0f} {item.unit}")
-    k2.metric(f"Forecast · {horizon}d", f"{sum(selected_forecast):,.0f} {item.unit}")
-    k3.metric("Near expiry · 30d", f"{summary['near_expiry']:,.0f} {item.unit}")
-    k4.metric("Suggested order", f"{order['order_qty']:,.0f} {item.unit}",
-              delta="Review required", delta_color="off")
-with reason_col:
-    st.subheader("Why this suggestion?")
-    st.markdown(f"- Current usable stock: **{summary['usable']:,.1f} {item.unit}**")
-    st.markdown(f"- Forecast demand over {horizon} days: **{order['horizon_demand']:,.1f} {item.unit}**")
-    st.markdown(f"- Safety stock allowance: **{order['safety_stock']:,.1f} {item.unit}**")
-    st.markdown(f"- Simplified reorder point: **{order['reorder_point']:,.1f} {item.unit}**")
-    st.caption(f"Order sizing uses the selected demand scenario and an illustrative {lead_time + int(delay)}-day effective lead time.")
-    if order["needs_order"]:
-        st.warning("Planning rule suggests an order for human review.")
-    else:
-        st.success("Usable stock is above the simplified reorder point.")
-
-tab_overview, tab_forecast, tab_stock, tab_scenario, tab_vision = st.tabs(
-    ["Overview", "Forecast", "Inventory & FEFO", "What-if simulator", "Bigger vision"]
+scenario = dict(active_scenario)
+horizon_days = int(scenario["horizon_days"])
+effective_lead_days = int(scenario["lead_time_days"] + scenario["additional_delay_days"])
+baseline_forecast = baseline_90[:horizon_days]
+scenario_forecast = apply_demand_scenario(
+    baseline_forecast,
+    float(scenario["demand_multiplier"]),
+    int(scenario["interruption_days"]),
 )
+order_plan = recommend_order(
+    scenario_forecast,
+    batches,
+    as_of,
+    lead_time_days=effective_lead_days,
+    horizon_days=horizon_days,
+    daily_demand_std=history_std,
+    service_factor=SERVICE_FACTOR,
+    confirmed_incoming=0.0,
+)
+arrival_date = as_of + pd.Timedelta(days=effective_lead_days) if float(order_plan["order_qty"]) > 1e-6 else pd.NaT
+baseline_run = simulate_policy(
+    batches, baseline_forecast, as_of, horizon_days, effective_lead_days,
+    additional_delay_days=0, order_qty=0.0,
+    order_shelf_life_days=item.shelf_life_days,
+)
+no_order_run = simulate_policy(
+    batches, scenario_forecast, as_of, horizon_days, int(scenario["lead_time_days"]),
+    additional_delay_days=int(scenario["additional_delay_days"]), order_qty=0.0,
+    order_shelf_life_days=item.shelf_life_days,
+)
+proposed_run = simulate_policy(
+    batches, scenario_forecast, as_of, horizon_days, int(scenario["lead_time_days"]),
+    additional_delay_days=int(scenario["additional_delay_days"]),
+    order_qty=float(order_plan["order_qty"]), order_shelf_life_days=item.shelf_life_days,
+)
+baseline_summary = summarize_simulation(baseline_run)
+no_order_summary = summarize_simulation(no_order_run)
+proposed_summary = summarize_simulation(proposed_run)
+current_stock = inventory_summary(batches, as_of)
+mean_forecast = float(np.mean(baseline_forecast)) if len(baseline_forecast) else 0.0
+days_cover = current_stock["usable"] / mean_forecast if mean_forecast > 0 else float("inf")
+order_improvement = float(no_order_summary["shortage"] - proposed_summary["shortage"])
 
-with tab_overview:
-    left, right = st.columns([1.5, 1])
-    with left:
-        st.markdown("#### Stock path under the selected scenario")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=baseline.date, y=baseline.closing_stock, name="Baseline · no disruption", line=dict(color="#27877b", width=3)))
-        fig.add_trace(go.Scatter(x=scenario_no_order.date, y=scenario_no_order.closing_stock, name="What-if · no new order", line=dict(color="#d78237", width=3)))
-        fig.add_trace(go.Scatter(x=scenario_with_order.date, y=scenario_with_order.closing_stock, name="What-if · suggested order", line=dict(color="#4266a8", width=3, dash="dash")))
-        fig.update_layout(template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#fff", font=dict(color="#263d4d", family="Inter, Segoe UI, sans-serif"), height=350, margin=dict(l=8,r=8,t=15,b=8), yaxis_title=f"Closing stock ({item.unit})", xaxis_title="Simulated date", legend=dict(orientation="h", y=-0.25))
-        st.plotly_chart(fig, use_container_width=True)
-    with right:
-        st.markdown("#### Scenario impact")
-        no_order_short = float(scenario_no_order.shortage.sum())
-        with_order_short = float(scenario_with_order.shortage.sum())
-        st.metric("Shortage without proposed order", f"{no_order_short:,.1f} {item.unit}")
-        st.metric("Shortage with proposed order", f"{with_order_short:,.1f} {item.unit}", delta=f"{no_order_short-with_order_short:,.1f} avoided in simulation")
-        st.caption(f"Scenario: +{delay} day delivery delay · {demand_multiplier:.2f}× demand · {interruption} day interruption. Projection is based on the selected forecast and stated assumptions.")
-    per_item = []
+st.markdown(
+    f"""
+<div class="brand"><div class="eyebrow">ANNA · Depot decision workspace</div>
+<h1>{page}</h1>
+<p>{selected_item} · {item.unit} · As of {as_of.strftime('%d %b %Y')} &nbsp; <span class="pill">SYNTHETIC SIMULATION</span></p></div>
+""",
+    unsafe_allow_html=True,
+)
+st.info("Illustrative synthetic data only. This prototype is not an operational Army system and does not create or transmit orders.", icon="ℹ️")
+
+
+if page == "Overview":
+    st.markdown('<div class="section-kicker">Current position</div>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Usable stock", quantity(current_stock["usable"], item.unit))
+    c2.metric("Days of cover", f"{days_cover:.1f} days" if np.isfinite(days_cover) else "—")
+    c3.metric(f"Baseline demand · {horizon_days}d", quantity(float(baseline_forecast.sum()), item.unit))
+    c4.metric("Expiring within 30 days", quantity(current_stock["near_expiry"], item.unit))
+
+    alert_col, action_col = st.columns([1.2, 1])
+    with alert_col:
+        st.subheader("Priority alerts")
+        if current_stock["expired"] > 0:
+            st.error(f"Expired stock excluded from available supply: {quantity(current_stock['expired'], item.unit, 1)}.")
+        if no_order_summary["first_shortage_date"] is not None:
+            st.warning(
+                f"Selected scenario projects unmet demand starting {no_order_summary['first_shortage_date']:%d %b}: "
+                f"{quantity(float(no_order_summary['shortage']), item.unit, 1)} over the {horizon_days}-day horizon."
+            )
+        else:
+            st.success(f"No unmet demand is projected in the selected {horizon_days}-day scenario.")
+        if current_stock["near_expiry"] > 0:
+            st.warning(f"Prioritize review of {quantity(current_stock['near_expiry'], item.unit, 1)} due to expire within 30 days.")
+        if bool(order_plan["needs_order"]):
+            st.info(f"Planning rule indicates a human-reviewed replenishment of {quantity(float(order_plan['order_qty']), item.unit, 1)}.")
+    with action_col:
+        st.subheader("Recommended next action")
+        if float(order_plan["order_qty"]) > 1e-6:
+            st.markdown(f"### Review {quantity(float(order_plan['order_qty']), item.unit, 1)} for replenishment")
+            st.write(f"Illustrative arrival: **{arrival_date:%d %b %Y}** · effective lead time {effective_lead_days} days.")
+            if bool(proposed_summary["delivery_after_horizon"]):
+                st.warning("The order arrives after this planning horizon, so it does not improve this projection.")
+            elif order_improvement > 1e-6:
+                st.success(f"Simulation demonstrates {quantity(order_improvement, item.unit, 1)} less unmet demand with the order under these assumptions.")
+            else:
+                st.info("The simulation does not demonstrate a shortage reduction with this proposed order.")
+        else:
+            st.markdown("### No order indicated by the current rule")
+            st.write("Usable stock and scenario demand do not produce a positive order-up-to quantity in this illustrative calculation.")
+        st.caption("Recommendation is a planning aid for review. No procurement or transport action is created.")
+
+    st.subheader("Projected usable stock")
+    st.plotly_chart(stock_chart(baseline_run, no_order_run, proposed_run, item.unit, arrival_date), width="stretch", config={"displayModeBar": False, "responsive": True})
+    st.caption("Selected scenario demand and proposed-order cases use the same starting batches, forecast horizon, FEFO allocation, and expiry rules. The baseline is the unadjusted demand reference.")
+
+
+elif page == "Demand Forecast":
+    st.markdown('<div class="section-kicker">Demand outlook</div>', unsafe_allow_html=True)
+    forecast_days = st.select_slider("Forecast view", options=[7, 14, 30, 60, 90], value=30, format_func=lambda value: f"{value} days")
+    forecast_dates = pd.date_range(as_of + pd.Timedelta(days=1), periods=forecast_days, freq="D")
+    base = baseline_90[:forecast_days]
+    adjusted = apply_demand_scenario(
+        base,
+        float(scenario["demand_multiplier"]),
+        int(scenario["interruption_days"]),
+    )
+    f1, f2, f3 = st.columns(3)
+    f1.metric("Baseline demand", quantity(float(base.sum()), item.unit, 1))
+    f2.metric("Scenario-adjusted demand", quantity(float(adjusted.sum()), item.unit, 1))
+    f3.metric("Scenario uplift", quantity(float(adjusted.sum() - base.sum()), item.unit, 1))
+    st.plotly_chart(demand_chart(forecast_dates, base, adjusted, item.unit), width="stretch", config={"displayModeBar": False, "responsive": True})
+    st.caption(
+        f"Scenario overlay uses {scenario['demand_multiplier']:.2f}× demand and applies an additional 1.15× pressure for the first "
+        f"{scenario['interruption_days']} day(s). These are illustrative controls configured in Scenario Simulator."
+    )
+    st.subheader("Chronological holdout evaluation")
+    metrics = evaluate_holdout(values, pd.Series(dates), model, int(seed), holdout=28)
+    st.caption("The most recent 28 synthetic observations are held out; training uses earlier dates only. These scores are not real-world performance evidence.")
+    e1, e2, e3 = st.columns(3)
+    e1.metric("MAE", f"{metrics['MAE']:.2f} {item.unit}/day")
+    e2.metric("RMSE", f"{metrics['RMSE']:.2f} {item.unit}/day")
+    e3.metric("WAPE", f"{metrics['WAPE']:.1f}%")
+    st.download_button(
+        "Download forecast CSV",
+        pd.DataFrame({"date": forecast_dates, "baseline_forecast": base, "scenario_adjusted_demand": adjusted, "item": selected_item, "unit": item.unit, "synthetic": True}).to_csv(index=False).encode("utf-8"),
+        "anna_demand_forecast_synthetic.csv", "text/csv",
+    )
+
+
+elif page == "Inventory & FEFO":
+    st.markdown('<div class="section-kicker">Stock condition</div>', unsafe_allow_html=True)
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("Usable", quantity(current_stock["usable"], item.unit, 1))
+    s2.metric("Expired · unavailable", quantity(current_stock["expired"], item.unit, 1))
+    s3.metric("Near expiry · 30 days", quantity(current_stock["near_expiry"], item.unit, 1))
+    s4.metric("Selected scenario waste", quantity(float(proposed_summary["expired_waste"]), item.unit, 1))
+    st.subheader("Batch register")
+    batch_view = batches.copy()
+    batch_view["days_to_expiry"] = (batch_view.expiry_date - as_of).dt.days
+    batch_view["status"] = np.select(
+        [batch_view.days_to_expiry < 0, batch_view.days_to_expiry <= 30],
+        ["Expired · unavailable", "Near expiry"], default="Usable",
+    )
+    batch_view = batch_view.rename(columns={"batch_id": "Batch", "quantity": f"Quantity ({item.unit})", "received_date": "Received", "expiry_date": "Expiry", "days_to_expiry": "Days to expiry", "status": "Status"})
+    st.dataframe(batch_view[["Batch", f"Quantity ({item.unit})", "Received", "Expiry", "Days to expiry", "Status"]], hide_index=True, width="stretch")
+
+    st.subheader("Seven-day FEFO pick preview")
+    requested = float(baseline_90[:7].sum())
+    picked, served, unmet = allocate_fefo(batches, requested, as_of)
+    picked["available"] = batches.quantity.to_numpy()
+    picked["planned_pick"] = picked.allocated
+    picked["remaining"] = picked.quantity
+    picked_view = picked.rename(columns={"batch_id": "Batch", "expiry_date": "Expiry", "available": f"Available ({item.unit})", "planned_pick": f"FEFO pick ({item.unit})", "remaining": f"Remaining ({item.unit})"})
+    st.dataframe(picked_view[["Batch", "Expiry", f"Available ({item.unit})", f"FEFO pick ({item.unit})", f"Remaining ({item.unit})"]], hide_index=True, width="stretch")
+    if unmet > 1e-6:
+        st.warning(f"Usable batches serve {quantity(served, item.unit, 1)} of the {quantity(requested, item.unit, 1)} preview demand; {quantity(unmet, item.unit, 1)} remains unmet.")
+    st.caption("FEFO means First Expired, First Out. Expired batches are shown for visibility but excluded from pick allocation and usable stock.")
+
+    st.subheader("Synthetic depot snapshot")
+    depot_rows = []
     for spec in ITEMS:
-        sub = batches_all[batches_all.item == spec.name]
-        s = inventory_summary(sub, as_of)
-        per_item.append({"Item": spec.name, "Usable stock": f"{s['usable']:,.0f} {spec.unit}",
-                         "Near expiry": f"{s['near_expiry']:,.0f} {spec.unit}", "Expiry assumption": f"{spec.shelf_life_days} days*"})
-    st.markdown("#### Depot snapshot · synthetic inventory")
-    st.dataframe(pd.DataFrame(per_item), hide_index=True, use_container_width=True)
+        item_batches = batches_all.loc[batches_all.item == spec.name]
+        item_summary = inventory_summary(item_batches, as_of)
+        depot_rows.append({"Ration item": spec.name, "Usable stock": quantity(item_summary["usable"], spec.unit, 1), "Expired": quantity(item_summary["expired"], spec.unit, 1), "Near expiry": quantity(item_summary["near_expiry"], spec.unit, 1)})
+    st.dataframe(pd.DataFrame(depot_rows), hide_index=True, width="stretch")
 
-with tab_forecast:
-    st.markdown(f"#### Historical demand and {model.lower()} forecast")
-    history_tail = series_df.tail(120)
-    future_dates = pd.date_range(as_of + pd.Timedelta(days=1), periods=horizon, freq="D")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=history_tail.date, y=history_tail.daily_consumption, name="Synthetic history", line=dict(color="#61758a", width=1.6)))
-    fig.add_trace(go.Scatter(x=future_dates, y=selected_forecast, name="Forecast", line=dict(color="#27877b", width=3), mode="lines+markers"))
-    fig.update_layout(template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#fff", font=dict(color="#263d4d", family="Inter, Segoe UI, sans-serif"), height=360, margin=dict(l=8,r=8,t=20,b=8), yaxis_title=f"Daily demand ({item.unit})", xaxis_title="Date", legend=dict(orientation="h", y=-0.25))
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown("#### Chronological holdout evaluation")
-    st.caption("Metrics below use the last 28 days as a holdout; the model is fitted only on earlier dates. They are calculated from this synthetic series, not entered as sample performance.")
-    a,b,c = st.columns(3)
-    a.metric("MAE", f"{metrics['MAE']:.2f} {item.unit}/day")
-    b.metric("RMSE", f"{metrics['RMSE']:.2f} {item.unit}/day")
-    c.metric("WAPE", f"{metrics['WAPE']:.1f}%")
-    st.info("The moving-average method is the transparent benchmark. Random Forest is an optional prototype model; one synthetic holdout is not evidence of real-world forecasting performance.")
-    export_forecast = pd.DataFrame({"forecast_date": future_dates, "item": selected_item, "model": model,
-                                    "forecast_quantity": selected_forecast, "unit": item.unit, "synthetic": True})
-    st.download_button("Download forecast CSV", export_forecast.to_csv(index=False).encode(), "anna_forecast_simulated.csv", "text/csv")
 
-with tab_stock:
-    st.markdown("#### Batch-level inventory")
-    view = batches.copy()
-    view["days_to_expiry"] = (view.expiry_date - as_of).dt.days
-    view["status"] = np.where(view.days_to_expiry < 0, "Expired", np.where(view.days_to_expiry <= 30, "Near expiry", "Usable"))
-    st.dataframe(view[["batch_id", "quantity", "received_date", "expiry_date", "days_to_expiry", "status"]].rename(columns={"quantity": f"Quantity ({item.unit})"}), hide_index=True, use_container_width=True)
-    st.markdown("#### FEFO pick preview")
-    preview, _, unfilled_pick = allocate_fefo(batches, order["mean_daily"] * min(7, horizon), as_of)
-    preview["available"] = batches["quantity"]
-    preview["planned_pick"] = preview["allocated"]
-    preview["remaining_after_preview"] = preview["quantity"]
-    st.dataframe(preview[["batch_id", "expiry_date", "available", "planned_pick", "remaining_after_preview"]].rename(columns={"available": f"Available ({item.unit})", "planned_pick": f"FEFO pick · 7d ({item.unit})", "remaining_after_preview": f"Remaining ({item.unit})"}), hide_index=True, use_container_width=True)
-    if unfilled_pick > 0.01:
-        st.warning(f"Synthetic usable stock cannot cover the seven-day preview by {unfilled_pick:,.1f} {item.unit}.")
-    st.caption("FEFO means First Expired, First Out. The pick preview allocates the next seven forecast-demand days to the earliest-expiring batches first. Expiry values are illustrative synthetic assumptions.")
+elif page == "Scenario Simulator":
+    st.markdown('<div class="section-kicker">Advanced controls · illustrative only</div>', unsafe_allow_html=True)
+    st.write("Choose assumptions, then run matched no-order and proposed-order policies. The only difference between those two runs is whether the calculated order enters the pipeline.")
+    with st.form("scenario_form", border=True):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            horizon_choice = st.select_slider("Planning horizon", options=[7, 14, 30], value=int(scenario["horizon_days"]), format_func=lambda value: f"{value} days")
+            nominal_lead = st.slider("Nominal transport lead time", 1, 21, int(scenario["lead_time_days"]), format="%d days")
+        with c2:
+            delay_choice = st.slider("Additional arrival delay", 0, 30, int(scenario["additional_delay_days"]), format="%d days")
+            demand_choice = st.slider("Demand multiplier", 0.75, 1.75, float(scenario["demand_multiplier"]), 0.05, format="%.2f×")
+        with c3:
+            interruption_choice = st.slider("Interruption pressure duration", 0, 30, int(scenario["interruption_days"]), format="%d days")
+            st.caption("The interruption proxy adds 15% demand pressure during the selected initial days; it does not model a real transport or supply event.")
+        submitted = st.form_submit_button("Run matched scenario", type="primary", width="stretch")
+    if submitted:
+        st.session_state.active_scenario = {
+            "lead_time_days": nominal_lead,
+            "additional_delay_days": delay_choice,
+            "demand_multiplier": demand_choice,
+            "interruption_days": interruption_choice,
+            "horizon_days": horizon_choice,
+        }
+        st.rerun()
 
-with tab_scenario:
-    st.markdown("#### Compare baseline and disruption")
-    comp = pd.DataFrame([
-        {"Case": "Baseline", "Delay (days)": 0, "Demand multiplier": "1.00×", "Interruption (days)": 0,
-         "Shortage": float(baseline.shortage.sum()), "Ending stock": float(baseline.closing_stock.iloc[-1])},
-        {"Case": "Selected what-if · no new order", "Delay (days)": int(delay), "Demand multiplier": f"{demand_multiplier:.2f}×", "Interruption (days)": int(interruption),
-         "Shortage": float(scenario_no_order.shortage.sum()), "Ending stock": float(scenario_no_order.closing_stock.iloc[-1])},
-        {"Case": "Selected what-if · suggested order", "Delay (days)": int(delay), "Demand multiplier": f"{demand_multiplier:.2f}×", "Interruption (days)": int(interruption),
-         "Shortage": float(scenario_with_order.shortage.sum()), "Ending stock": float(scenario_with_order.closing_stock.iloc[-1])},
-    ])
-    comp["Shortage"] = comp["Shortage"].map(lambda x: f"{x:,.1f} {item.unit}")
-    comp["Ending stock"] = comp["Ending stock"].map(lambda x: f"{x:,.1f} {item.unit}")
-    st.dataframe(comp, hide_index=True, use_container_width=True)
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=scenario_no_order.date, y=scenario_no_order.shortage, name="Daily shortage · no order", fill="tozeroy", line=dict(color="#d66b5d")))
-    fig.add_trace(go.Scatter(x=scenario_with_order.date, y=scenario_with_order.shortage, name="Daily shortage · proposed order", line=dict(color="#4266a8", width=2)))
-    fig.update_layout(template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#fff", font=dict(color="#263d4d", family="Inter, Segoe UI, sans-serif"), height=320, margin=dict(l=8,r=8,t=20,b=8), yaxis_title=f"Unmet demand ({item.unit})", xaxis_title="Simulated date", legend=dict(orientation="h", y=-0.25))
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption("The simulator applies the selected demand multiplier and delivery delay to a copied synthetic scenario. An interruption increases modeled demand pressure during the selected initial period. This is a teaching scenario, not an operational forecast.")
-    st.download_button("Download scenario results CSV", scenario_with_order.assign(item=selected_item, scenario="simulated", synthetic=True).to_csv(index=False).encode(), "anna_scenario_simulated.csv", "text/csv")
+    st.subheader("Scenario being compared")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Adjusted daily demand", f"{float(scenario_forecast.mean()):,.1f} {item.unit}/day")
+    m2.metric("Planning horizon", f"{horizon_days} days")
+    m3.metric("Order arrival", f"{arrival_date:%d %b %Y}" if float(order_plan["order_qty"]) > 0 else "No order")
+    m4.metric("Proposed quantity", quantity(float(order_plan["order_qty"]), item.unit, 1))
+    if bool(proposed_summary["delivery_after_horizon"]):
+        st.warning(f"Order arrives on {arrival_date:%d %b %Y}, after this {horizon_days}-day planning horizon. It is not counted as received, and it cannot reduce this horizon's shortage.")
+    if no_order_summary["first_shortage_date"] is not None:
+        st.error(f"No-order scenario first runs short on {no_order_summary['first_shortage_date']:%d %b %Y}; total unmet demand is {quantity(float(no_order_summary['shortage']), item.unit, 1)}.")
+    if order_improvement > 1e-6:
+        st.success(f"Matched simulation shows {quantity(order_improvement, item.unit, 1)} less unmet demand after the proposed order arrives.")
+    else:
+        st.info("The proposed order does not reduce simulated shortage within this horizon. No shortage-reduction claim is made.")
 
-with tab_vision:
-    st.markdown("#### From a focused demo to a broader logistics vision")
-    a,b,c = st.columns(3)
-    with a:
-        st.markdown("<div class='vision-card'><div class='vision-step'>Now · prototype</div><h4>Prove the core workflow</h4><p>One simulated depot, generated data, explainable forecasts, FEFO, replenishment math and what-if comparisons.</p></div>", unsafe_allow_html=True)
-    with b:
-        st.markdown("<div class='vision-card'><div class='vision-step'>Next · research validation</div><h4>Test with approved evidence</h4><p>Compare policies across seeds and scenarios; only later consider authorized, de-identified historical data in shadow mode.</p></div>", unsafe_allow_html=True)
-    with c:
-        st.markdown("<div class='vision-card'><div class='vision-step'>Longer term · vision</div><h4>Explore a multi-depot platform</h4><p>Regional profiles, stronger resilience and approved integrations are future possibilities subject to sponsorship, security review and validation.</p></div>", unsafe_allow_html=True)
-    st.markdown("#### What this prototype does not claim")
-    st.markdown("- It does not represent current Army software, ration scales, operational parameters, or actual depot performance.\n- It does not prove that a forecast improves outcomes or that deployment saves money.\n- It does not send orders or replace human planning and approval.")
+    st.subheader("Policy comparison")
+    policy_rows = []
+    for name, metrics in [
+        ("Baseline · unadjusted forecast, no order", baseline_summary),
+        ("Selected scenario · no order", no_order_summary),
+        ("Selected scenario · proposed order", proposed_summary),
+    ]:
+        policy_rows.append({
+            "Policy": name,
+            "Demand": quantity(float(metrics["total_demand"]), item.unit, 1),
+            "Unmet demand": quantity(float(metrics["shortage"]), item.unit, 1),
+            "Fill rate": f"{float(metrics['fill_rate_pct']):.1f}%",
+            "Expired / waste": quantity(float(metrics["expired_waste"]), item.unit, 1),
+            "Ending usable stock": quantity(float(metrics["ending_stock"]), item.unit, 1),
+            "Order received": "Yes" if metrics["order_received"] else "No",
+        })
+    st.dataframe(pd.DataFrame(policy_rows), hide_index=True, width="stretch")
+    st.caption("All policies start from the same batches and use the same FEFO and expiry rules. The matched no-order and proposed-order runs use identical scenario-adjusted demand, lead time, delay, and horizon; only the proposed run adds the calculated order.")
+    st.plotly_chart(stock_chart(baseline_run, no_order_run, proposed_run, item.unit, arrival_date), width="stretch", config={"displayModeBar": False, "responsive": True})
+    with st.expander("Daily simulation detail"):
+        detail = proposed_run.copy()
+        detail.attrs = {}
+        st.dataframe(detail.rename(columns={"date": "Date", "demand": f"Demand ({item.unit})", "served": f"Served ({item.unit})", "shortage": f"Shortage ({item.unit})", "incoming": f"Incoming ({item.unit})", "expired_waste": f"Waste ({item.unit})", "closing_stock": f"Closing stock ({item.unit})", "usable_closing_stock": f"Usable closing stock ({item.unit})"}), hide_index=True, width="stretch")
 
-st.divider()
-st.caption(f"Run seed {seed} · As-of date {as_of.date()} · *Shelf-life values are illustrative prototype assumptions, not verified storage specifications.")
+
+elif page == "Recommendations":
+    st.markdown('<div class="section-kicker">Explainable planning rule</div>', unsafe_allow_html=True)
+    rec_col, basis_col = st.columns([1, 1.25])
+    with rec_col:
+        st.subheader("Suggested action")
+        if float(order_plan["order_qty"]) > 1e-6:
+            st.markdown(f"## Review {quantity(float(order_plan['order_qty']), item.unit, 1)}")
+            st.write(f"Target arrival: **{arrival_date:%A, %d %B %Y}**")
+            st.write(f"Effective lead time: **{effective_lead_days} days** (nominal {scenario['lead_time_days']} + additional delay {scenario['additional_delay_days']}).")
+            if bool(proposed_summary["delivery_after_horizon"]):
+                st.warning("This arrival falls after the selected planning horizon. The proposal cannot prevent shortages in the current projection.")
+            if order_improvement > 1e-6:
+                st.success(f"Simulated shortage reduction: {quantity(order_improvement, item.unit, 1)} under the selected assumptions.")
+            else:
+                st.info("The matched simulation did not show lower unmet demand with this order.")
+        else:
+            st.markdown("## No order indicated")
+            st.write("The simplified order-up-to quantity is zero for the selected assumptions.")
+        st.warning("Human review required. This synthetic calculation does not create or transmit a procurement request.")
+    with basis_col:
+        st.subheader("Calculation basis")
+        st.markdown(
+            "**Reorder point** = forecast demand during effective lead time + safety stock  \n"
+            "**Safety stock** = 1.28 × historical daily-demand standard deviation × √(effective lead time)  \n"
+            "**Target stock** = forecast demand over max(lead time, planning horizon) + safety stock  \n"
+            "**Order quantity** = max(0, target stock − usable stock − confirmed incoming stock)"
+        )
+        details = [
+            ("Scenario demand over planning horizon", quantity(float(order_plan["horizon_demand"]), item.unit, 1)),
+            ("Demand through effective lead time", quantity(float(order_plan["lead_demand"]), item.unit, 1)),
+            ("Historical daily-demand standard deviation", f"{history_std:.2f} {item.unit}/day"),
+            ("Illustrative safety stock (z = 1.28)", quantity(float(order_plan["safety_stock"]), item.unit, 1)),
+            ("Reorder point", quantity(float(order_plan["reorder_point"]), item.unit, 1)),
+            (f"Target coverage ({order_plan['coverage_days']} days)", quantity(float(order_plan["target_stock"]), item.unit, 1)),
+            ("Usable stock", quantity(float(order_plan["usable_stock"]), item.unit, 1)),
+            ("Confirmed incoming stock assumed", quantity(float(order_plan["confirmed_incoming"]), item.unit, 1)),
+        ]
+        st.dataframe(pd.DataFrame(details, columns=["Input", "Calculated value"]), hide_index=True, width="stretch")
+        st.caption("Safety stock uses recent synthetic daily-demand variability, not forecast residuals. z = 1.28 is an illustrative normal-demand service factor. No confirmed inbound shipments are present in this prototype.")
+
+    st.subheader("Why this recommendation appears")
+    why = [
+        f"Usable stock is {quantity(float(order_plan['usable_stock']), item.unit, 1)}; expired stock is excluded.",
+        f"The selected scenario forecasts {quantity(float(order_plan['horizon_demand']), item.unit, 1)} over {horizon_days} days.",
+        f"The effective arrival lead time is {effective_lead_days} days, giving a reorder point of {quantity(float(order_plan['reorder_point']), item.unit, 1)}.",
+        f"Order sizing targets {int(order_plan['coverage_days'])} days of forecast coverage plus safety stock.",
+    ]
+    for explanation in why:
+        st.markdown(f"- {explanation}")
+    st.caption("Expiry waste, fill rate, and unmet demand are recalculated in the policy simulation. The recommendation is not evidence of operational savings or real-world forecast performance.")
+
+
+st.markdown("---")
+st.caption("ANNA Prototype 0 · Generated data only · All shelf life, demand variability, lead times, and scenario inputs are illustrative.")
