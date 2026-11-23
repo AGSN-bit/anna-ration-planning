@@ -53,9 +53,9 @@ def generate_batches(seed: int, history: pd.DataFrame) -> pd.DataFrame:
         average = float(series.tail(28).mean())
         total_days = float(rng.uniform(18, 32))
         portions = rng.dirichlet([2.2, 2.0, 1.6])
-        # Two batches expire sooner, so FEFO and expiry exposure are visible in the demo.
-        expiry_offsets = [max(8, min(item.shelf_life_days - 1, 24)),
-                          max(20, min(item.shelf_life_days - 1, 58)),
+        # Include an already-expired batch and two upcoming expiries so the
+        # unusable-stock, FEFO, and waste views are visible in the demo.
+        expiry_offsets = [-5, max(8, min(item.shelf_life_days - 1, 24)),
                           max(35, item.shelf_life_days - 25)]
         for batch_no, (portion, offset) in enumerate(zip(portions, expiry_offsets), start=1):
             received = as_of - pd.Timedelta(days=int(rng.integers(15, 55)))
