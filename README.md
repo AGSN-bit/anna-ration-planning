@@ -10,9 +10,11 @@ ANNA is a local demonstration of how a future ration logistics platform might co
 - A transparent moving-average benchmark and an optional Random Forest demand forecast.
 - A chronological 28-day holdout view with MAE, RMSE, and WAPE calculated from the synthetic series.
 - Synthetic batch inventory, days-to-expiry visibility, and a First Expired, First Out (FEFO) pick preview.
-- A simplified safety-stock and replenishment calculation that responds to the selected scenario.
-- Side-by-side baseline and what-if projections for changed demand, additional delivery delay, and interruption pressure.
-- A roadmap view that separates today's demo from later validation and the longer-term multi-depot vision.
+- A clearly separated operator workspace: Overview, Demand Forecast, Inventory & FEFO, Scenario Simulator, and Recommendations.
+- A transparent order-up-to calculation based on forecast lead-time demand, recent daily-demand variability, safety stock, usable inventory, and confirmed incoming stock.
+- Scenario-adjusted demand shown separately from the baseline forecast.
+- Matched no-order and proposed-order simulations using the same scenario demand, starting batches, lead time, FEFO, expiry rules, and horizon.
+- Date-based order arrivals, horizon warnings, shortage, fill rate, ending stock, and expiry waste after simulated replenishment.
 - CSV downloads for the forecast and scenario projection.
 
 ## Requirements
@@ -158,14 +160,24 @@ streamlit run app.py
 
 ## Using the demo
 
-1. Use the sidebar to choose a synthetic-data seed, ration category, forecast method, and planning horizon.
-2. Open **Overview** to see usable stock, projected demand, near-expiry quantity, the illustrative replenishment suggestion, and the selected scenario's stock path.
-3. Open **Forecast** to inspect synthetic history, future demand, and the generated-series holdout metrics. Download the forecast CSV if useful for a presentation.
-4. Open **Inventory & FEFO** to inspect the synthetic batches and see how a seven-day pick is allocated to earlier-expiring eligible batches first.
-5. Adjust the what-if controls in the sidebar and compare baseline and disrupted cases in **Overview** or **What-if simulator**.
-6. Use **Bigger vision** to explain the intended progression from a focused prototype to validated research and, only if authorized and supported, a broader multi-depot platform.
+1. Use the sidebar to choose a synthetic-data seed, ration category, and forecast method.
+2. Open **Overview** for usable stock, days of cover, priority alerts, the proposed action, and projected stock paths.
+3. Open **Demand Forecast** to compare baseline and scenario-adjusted demand and view synthetic chronological holdout metrics.
+4. Open **Inventory & FEFO** to inspect batches, expired stock, upcoming expiry, and the seven-day pick allocation.
+5. Set scenario assumptions inside **Scenario Simulator** and run the matched policy comparison.
+6. Open **Recommendations** to review the proposed order, expected arrival, formula inputs, and human-review explanation.
 
-Changing the seed creates a different reproducible synthetic example. The sliders are teaching controls, not operational parameters. An interruption is represented as temporary demand pressure in this prototype.
+Changing the seed creates a different reproducible synthetic example. Scenario controls are teaching assumptions, not operational parameters. The interruption control represents temporary demand pressure; it does not model an actual transport or supply event.
+
+## Run calculation tests
+
+The calculation tests use Python's standard-library `unittest` module and the runtime dependencies already installed for the app:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The suite covers FEFO eligibility, usable-stock accounting, order sizing, demand-scenario separation, delivery arrival timing, after-horizon warnings, shortage, fill rate, and expiry waste.
 
 ## Project structure
 
@@ -174,6 +186,7 @@ ANNA/
 ├── app.py                 # Streamlit interface and charts
 ├── requirements.txt       # Python dependencies
 ├── README.md              # Setup, usage, and scope
+├── tests/                  # Forecasting and inventory calculation tests
 └── anna/
     ├── __init__.py
     ├── data.py            # Synthetic demand and batch data
@@ -184,13 +197,13 @@ ANNA/
 ## Prototype architecture
 
 ```text
-Generated daily demand ──> Forecast method ──> Demand outlook ─┐
-                                                               ├─> Replenishment suggestion
-Generated item batches ──> Usable stock + expiry / FEFO ───────┘
-                                                                      │
-Sidebar scenario controls ──> Baseline / what-if replay <─────────────┘
-                                                                      │
-                                                         Dashboard + CSV exports
+Synthetic history ──> Baseline forecast ──> Scenario demand adjustment ──┐
+                                                                         ├─> Order-up-to suggestion
+Synthetic batches ──> Usable stock + FEFO + expiry ──────────────────────┘
+                                                                            │
+Scenario inputs ──> lead-time receipt ──> matched policy replay ──> KPI summaries
+                                                                            │
+                                        Overview · Forecast · Inventory · Simulator · Recommendations
 ```
 
 The current app is intentionally a local, single-process demonstration. It has no production database, user accounts, role permissions, audit trail, integration layer, multi-depot synchronization, offline workflow, or procurement execution.
@@ -204,5 +217,8 @@ The prototype is a way to communicate and discuss the workflow, not evidence tha
 - Generated data does not describe real demand, inventory, storage conditions, transport, or Army procedures.
 - Shelf-life and replenishment parameters are illustrative assumptions and must not be used for actual ration handling or procurement decisions.
 - Forecast scores describe one synthetic chronological holdout and do not establish real-world accuracy.
-- The replenishment rule and disruption simulator are simplified demonstrations, not validated optimization or logistics models.
+- The order-up-to rule is simplified: safety stock uses recent historical daily-demand standard deviation and an illustrative z-value of 1.28; it is not a validated service-level policy.
+- Confirmed incoming stock is zero in generated examples; no live pipeline or transport status is connected.
+- The interruption control is modeled as a demand multiplier proxy, not a supply outage.
+- The simulator does not optimize order quantities or account for supplier minimums, vehicle capacity, route constraints, or procurement rules.
 - Recommendations are for review only; no order is created or transmitted.
