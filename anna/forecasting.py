@@ -13,8 +13,8 @@ def _features(values: list[float], next_date: pd.Timestamp) -> list[float]:
 
     rolling_7 = float(np.mean(values[-7:]))
     rolling_28 = float(np.mean(values[-28:]))
-    dow = next_date.dayofweek
-    doy = next_date.dayofyear
+    dow = next_date.day_of_week
+    doy = next_date.day_of_year
     return [lag(1), lag(7), lag(14), lag(28), rolling_7, rolling_28,
             np.sin(2 * np.pi * dow / 7), np.cos(2 * np.pi * dow / 7),
             np.sin(2 * np.pi * doy / 365.25), np.cos(2 * np.pi * doy / 365.25)]
@@ -34,6 +34,15 @@ def forecast(series: pd.Series, dates: pd.Series, horizon: int, model: str, seed
     values = [float(v) for v in series]
     if not values:
         raise ValueError("At least one historical observation is required.")
+    if len(values) != len(dates):
+        raise ValueError("Demand history and dates must have the same length.")
+    if horizon < 1:
+        raise ValueError("Forecast horizon must be at least one day.")
+    if model not in {"Moving average", "Random Forest"}:
+        raise ValueError(f"Unsupported forecast method: {model}")
+    date_index = pd.DatetimeIndex(pd.to_datetime(dates))
+    if date_index.has_duplicates or not date_index.is_monotonic_increasing:
+        raise ValueError("Dates must be unique and sorted in ascending order.")
     if model == "Moving average":
         level = float(np.mean(values[-28:]))
         return np.full(horizon, level, dtype=float)
@@ -57,6 +66,10 @@ def forecast(series: pd.Series, dates: pd.Series, horizon: int, model: str, seed
 
 def evaluate_holdout(series: pd.Series, dates: pd.Series, model: str, seed: int, holdout: int = 28) -> dict[str, float]:
     """Evaluate a single chronological holdout; future values never enter training."""
+    if len(series) != len(dates):
+        raise ValueError("Demand history and dates must have the same length.")
+    if holdout < 1:
+        raise ValueError("Holdout must be at least one day.")
     if len(series) <= holdout + 30:
         return {"MAE": float("nan"), "RMSE": float("nan"), "WAPE": float("nan")}
     train = series.iloc[:-holdout].reset_index(drop=True)
